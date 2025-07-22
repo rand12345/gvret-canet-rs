@@ -1,0 +1,117 @@
+name: Build and Release Rust Crate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write  # Required for creating and updating releases
+
+jobs:
+  build:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: Windows 11
+            artifact_name: gvret-canet-rs-windows-x64.exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macOS Apple Silicon
+            artifact_name: gvret-canet-rs-macos-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macOS Intel
+            artifact_name: gvret-canet-rs-macos-x64
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            name: Linux ARM64
+            artifact_name: gvret-canet-rs-linux-arm64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: Linux x64
+            artifact_name: gvret-canet-rs-linux-x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build crate
+        run: |
+          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
+            cargo build --release --target ${{ matrix.target }} --verbose
+          else
+            cargo build --release --target ${{ matrix.target }} --verbose
+          fi
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+
+      - name: Run tests
+        run: |
+          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
+            cargo test --release --target ${{ matrix.target }} --verbose
+          else
+            cargo test --release --target ${{ matrix.target }} --verbose
+          fi
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: target/${{ matrix.target }}/release/gvret-canet-rs${{ matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
+          if-no-files-found: error
+
+  release:
+    name: Create or Update Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get Cargo.toml version
+        id: get_version
+        run: |
+          VERSION=$(grep '^version =' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create or update release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
+          for artifact in artifacts/*/gvret-canet-rs*; do
+            gh release upload v$VERSION "$artifact" --clobber
+          done
