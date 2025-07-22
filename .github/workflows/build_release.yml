@@ -124,18 +124,28 @@ jobs:
           test -f artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret
           test -f artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret
 
-      - name: Create or update release
+      - name: Upload release artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
+      
+          # Ensure release exists
+          if ! gh release view "v$VERSION"; then
+            gh release create "v$VERSION" --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
+            sleep 10
+          fi
       
           echo "Uploading artifacts..."
+          sleep 1
           gh release upload v$VERSION "artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe#usr-canet-gvret-windows-x64.exe" --clobber
+          sleep 1
           gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret#usr-canet-gvret-macos-arm64" --clobber
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret#usr-canet-gvret-macos-intel" --clobber
+          sleep 1
+          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret#usr-canet-gvret-macos-x64" --clobber
+          sleep 1
           gh release upload v$VERSION "artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret#usr-canet-gvret-linux-arm64" --clobber
+          sleep 1
           gh release upload v$VERSION "artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret#usr-canet-gvret-linux-x64" --clobber
 
 
