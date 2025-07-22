@@ -132,7 +132,8 @@ jobs:
           gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
           
           echo "Uploading artifacts..."
-          for path in artifacts/*/*; do
-            echo "Uploading $path"
-            gh release upload v$VERSION "$path#$(basename $path)" --clobber
+          find artifacts -type f | while read -r path; do
+            filename=$(basename "$path")
+            echo "Uploading $path as $filename"
+            gh release upload v$VERSION "$path#$filename" --clobber
           done
