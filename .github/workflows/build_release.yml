@@ -100,6 +100,10 @@ jobs:
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
           gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
-          for artifact in artifacts/*/usr-canet-gvret*; do
-            [ -f "$artifact" ] && gh release upload v$VERSION "$artifact" --clobber || echo "Skipping missing artifact: $artifact"
-          done
+          gh release upload v$VERSION \
+            "artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe#usr-canet-gvret-windows-x64.exe" \
+            "artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret#usr-canet-gvret-macos-arm64" \
+            "artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret#usr-canet-gvret-macos-x64" \
+            "artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret#usr-canet-gvret-linux-arm64" \
+            "artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret#usr-canet-gvret-linux-x64" \
+            --clobber
