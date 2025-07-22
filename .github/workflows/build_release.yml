@@ -130,10 +130,14 @@ jobs:
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
           gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
-          
+      
           echo "Uploading artifacts..."
-          find artifacts -type f | while read -r path; do
-            filename=$(basename "$path")
-            echo "Uploading $path as $filename"
-            gh release upload v$VERSION "$path#$filename" --clobber
+          for dir in artifacts/*; do
+            if [[ -d "$dir" ]]; then
+              asset_name=$(basename "$dir")
+              file_path=$(find "$dir" -type f | head -n 1)
+              echo "Uploading $file_path as $asset_name"
+              gh release upload v$VERSION "$file_path#$asset_name" --clobber
+            fi
           done
+
