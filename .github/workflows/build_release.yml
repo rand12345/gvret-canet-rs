@@ -52,28 +52,41 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libusb-1.0-0-dev
+
+      - name: Install dependencies (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install libusb
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Build crate
-        run: cargo build --release --target ${{ matrix.target }} --verbose
+        run: cargo build --release --target ${{ matrix.target }} --verbose || exit 1
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
           CC_aarch64_unknown_linux_gnu: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
           CXX_aarch64_unknown_linux_gnu: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-g++' || '' }}
+
+      - name: Debug target directory
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            dir target/${{ matrix.target }}/release || echo "Directory not found"
+          else
+            ls -la target/${{ matrix.target }}/release || echo "Directory not found"
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
-          if-no-files-found: warn  # Avoid job failure for debugging
+          if-no-files-found: warn
 
   release:
     name: Create or Update Release
@@ -94,12 +107,17 @@ jobs:
         with:
           path: artifacts
 
+      - name: Debug artifacts
+        run: |
+          echo "Contents of artifacts directory:"
+          ls -R artifacts
+
       - name: Create or update release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
+          gh release view v$VERSION || { gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION" && sleep 5; }
           gh release upload v$VERSION \
             "artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe#usr-canet-gvret-windows-x64.exe" \
             "artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret#usr-canet-gvret-macos-arm64" \
