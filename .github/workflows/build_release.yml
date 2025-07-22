@@ -63,30 +63,42 @@ jobs:
         run: |
           brew install libusb
 
+      - name: Set environment for Linux ARM64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Build crate
-        run: cargo build --release --target ${{ matrix.target }} --verbose || exit 1
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
-          CC_aarch64_unknown_linux_gnu: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
-          CXX_aarch64_unknown_linux_gnu: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-g++' || '' }}
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
-          if-no-files-found: warn
+          if-no-files-found: error
 
   release:
     name: Create or Update Release
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'push'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: sudo apt-get install -y gh
+
+      - name: Authenticate GH CLI
+        run: gh auth status
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get Cargo.toml version
         id: get_version
@@ -94,26 +106,33 @@ jobs:
           VERSION=$(grep '^version =' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
       - name: Debug artifacts
         run: |
-          echo "Contents of artifacts directory:"
-          ls -R artifacts
+          echo "Artifacts directory structure:"
+          find artifacts
+
+      - name: Validate artifacts
+        run: |
+          test -f artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe
+          test -f artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret
+          test -f artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret
+          test -f artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret
+          test -f artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret
 
       - name: Create or update release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          gh release view v$VERSION || { gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION" && sleep 5; }
-          gh release upload v$VERSION \
-            "artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe#usr-canet-gvret-windows-x64.exe" \
-            "artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret#usr-canet-gvret-macos-arm64" \
-            "artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret#usr-canet-gvret-macos-x64" \
-            "artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret#usr-canet-gvret-linux-arm64" \
-            "artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret#usr-canet-gvret-linux-x64" \
-            --clobber
+          gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
+          
+          echo "Uploading artifacts..."
+          for path in artifacts/*/*; do
+            echo "Uploading $path"
+            gh release upload v$VERSION "$path#$(basename $path)" --clobber
+          done
