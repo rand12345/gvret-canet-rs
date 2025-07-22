@@ -120,7 +120,7 @@ jobs:
         run: |
           mv artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe artifacts/usr-canet-gvret.exe
           mv artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret artifacts/usr-canet-gvret-macos
-          mv artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret artifacts/usr-canet-gvret-macos-x64
+          mv artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret artifacts/usr-canet-gvret-macos-intel
           mv artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret artifacts/usr-canet-gvret-arm64
           mv artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret artifacts/usr-canet-gvret
 
@@ -140,7 +140,7 @@ jobs:
           sleep 1
           gh release upload v$VERSION "artifacts/usr-canet-gvret.exe" --clobber
           gh release upload v$VERSION "artifacts/usr-canet-gvret-macos" --clobber
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-x64" --clobber
+          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-intel" --clobber
           gh release upload v$VERSION "artifacts/usr-canet-gvret-arm64" --clobber
           gh release upload v$VERSION "artifacts/usr-canet-gvret" --clobber
 
