@@ -137,7 +137,17 @@ jobs:
               asset_name=$(basename "$dir")
               file_path=$(find "$dir" -type f | head -n 1)
               echo "Uploading $file_path as $asset_name"
-              gh release upload v$VERSION "$file_path#$asset_name" --clobber
+              for attempt in {1..3}; do
+                if gh release upload "v$VERSION" "$file_path#$asset_name" --clobber; then
+                  echo "Uploaded $asset_name successfully"
+                  break
+                else
+                  echo "Retrying upload ($attempt) for $asset_name..."
+                  sleep 5
+                fi
+              done
+              sleep 3
             fi
           done
+
 
