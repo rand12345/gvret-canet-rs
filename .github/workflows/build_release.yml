@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 permissions:
-  contents: write
+  contents: write  # Required for creating and updating releases
 
 jobs:
   build:
@@ -28,7 +28,7 @@ jobs:
             target: x86_64-apple-darwin
             name: macOS Intel
             artifact_name: gvret-canet-rs-macos-x64
-          - os: ubuntu-22.04-arm
+          - os: ubuntu-22.04-arm  # Assumes self-hosted ARM64 runner
             target: aarch64-unknown-linux-gnu
             name: Linux ARM64
             artifact_name: gvret-canet-rs-linux-arm64
@@ -47,38 +47,14 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Build crate
-        run: |
-          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
-            cargo build --release --target ${{ matrix.target }} --verbose
-          else
-            cargo build --release --target ${{ matrix.target }} --verbose
-          fi
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+        run: cargo build --release --target ${{ matrix.target }} --verbose
 
       - name: Run tests
-        run: |
-          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
-            cargo test --release --target ${{ matrix.target }} --verbose
-          else
-            cargo test --release --target ${{ matrix.target }} --verbose
-          fi
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+        run: cargo test --release --target ${{ matrix.target }} --verbose
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
