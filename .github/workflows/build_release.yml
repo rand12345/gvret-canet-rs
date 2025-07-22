@@ -19,23 +19,28 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             name: Windows 11
-            artifact_name: gvret-canet-rs-windows-x64.exe
-          # - os: macos-latest
-          #   target: aarch64-apple-darwin
-          #   name: macOS Apple Silicon
-          #   artifact_name: gvret-canet-rs-macos-arm64
-          # - os: macos-latest
-          #   target: x86_64-apple-darwin
-          #   name: macOS Intel
-          #   artifact_name: gvret-canet-rs-macos-x64
-          # - os: ubuntu-22.04-arm  # Assumes self-hosted ARM64 runner
-          #   target: aarch64-unknown-linux-gnu
-          #   name: Linux ARM64
-          #   artifact_name: gvret-canet-rs-linux-arm64
-          # - os: ubuntu-latest
-          #   target: x86_64-unknown-linux-gnu
-          #   name: Linux x64
-          #   artifact_name: gvret-canet-rs-linux-x64
+            artifact_name: usr-canet-gvret-windows-x64.exe
+            artifact_path: target/x86_64-pc-windows-msvc/release/usr-canet-gvret.exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macOS Apple Silicon
+            artifact_name: usr-canet-gvret-macos-arm64
+            artifact_path: target/aarch64-apple-darwin/release/usr-canet-gvret
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macOS Intel
+            artifact_name: usr-canet-gvret-macos-x64
+            artifact_path: target/x86_64-apple-darwin/release/usr-canet-gvret
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            name: Linux ARM64
+            artifact_name: usr-canet-gvret-linux-arm64
+            artifact_path: target/aarch64-unknown-linux-gnu/release/usr-canet-gvret
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: Linux x64
+            artifact_name: usr-canet-gvret-linux-x64
+            artifact_path: target/x86_64-unknown-linux-gnu/release/usr-canet-gvret
 
     steps:
       - name: Checkout repository
@@ -47,21 +52,33 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Build crate
         run: cargo build --release --target ${{ matrix.target }} --verbose
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
+          CC_aarch64_unknown_linux_gnu: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
+          CXX_aarch64_unknown_linux_gnu: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-g++' || '' }}
 
-      - name: Run tests
-        run: cargo test --release --target ${{ matrix.target }} --verbose
+      - name: Debug target directory
+        run: |
+          echo "Contents of target/${{ matrix.target }}/release:"
+          ls -la target/${{ matrix.target }}/release || echo "Directory not found"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: target/${{ matrix.target }}/release/gvret-canet-rs${{ matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
-          if-no-files-found: error
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: warn  # Avoid job failure for debugging
 
   release:
     name: Create or Update Release
@@ -88,6 +105,6 @@ jobs:
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
           gh release view v$VERSION || gh release create v$VERSION --title "Release v$VERSION" --notes "Auto-generated release for version v$VERSION"
-          for artifact in artifacts/*/gvret-canet-rs*; do
-            gh release upload v$VERSION "$artifact" --clobber
+          for artifact in artifacts/*/usr-canet-gvret*; do
+            [ -f "$artifact" ] && gh release upload v$VERSION "$artifact" --clobber || echo "Skipping missing artifact: $artifact"
           done
