@@ -116,13 +116,13 @@ jobs:
           echo "Artifacts directory structure:"
           find artifacts
 
-      - name: Validate artifacts
+      - name: Rename artifacts
         run: |
-          test -f artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe
-          test -f artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret
-          test -f artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret
-          test -f artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret
-          test -f artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret
+          mv artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe artifacts/usr-canet-gvret.exe
+          mv artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret artifacts/usr-canet-gvret-macos
+          mv artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret artifacts/usr-canet-gvret-macos-x64
+          mv artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret artifacts/usr-canet-gvret-arm64
+          mv artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret artifacts/usr-canet-gvret
 
       - name: Upload release artifacts
         env:
@@ -138,14 +138,10 @@ jobs:
       
           echo "Uploading artifacts..."
           sleep 1
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-windows-x64.exe/usr-canet-gvret.exe#usr-canet-gvret-windows-x64.exe" --clobber
-          sleep 1
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-arm64/usr-canet-gvret#usr-canet-gvret-macos-arm64" --clobber
-          sleep 1
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-x64/usr-canet-gvret#usr-canet-gvret-macos-x64" --clobber
-          sleep 1
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-linux-arm64/usr-canet-gvret#usr-canet-gvret-linux-arm64" --clobber
-          sleep 1
-          gh release upload v$VERSION "artifacts/usr-canet-gvret-linux-x64/usr-canet-gvret#usr-canet-gvret-linux-x64" --clobber
+          gh release upload v$VERSION "artifacts/usr-canet-gvret.exe" --clobber
+          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos" --clobber
+          gh release upload v$VERSION "artifacts/usr-canet-gvret-macos-x64" --clobber
+          gh release upload v$VERSION "artifacts/usr-canet-gvret-arm64" --clobber
+          gh release upload v$VERSION "artifacts/usr-canet-gvret" --clobber
 
 
